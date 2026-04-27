@@ -231,10 +231,10 @@ class ApiConstants {
       'https://nuro-image.baselembaby.cloud';
 
   /// Face stroke detection service (MediaPipe FaceMesh)
-  static const String strokeFaceServiceUrl = 'http://13.60.37.44:5000';
+  static const String strokeFaceServiceUrl = 'http://13.60.105.139:5000';
 
   /// Hand stroke detection service (MediaPipe Hands)
-  static const String strokeHandServiceUrl = 'http://13.60.37.44:5001';
+  static const String strokeHandServiceUrl = 'http://13.60.105.139:5001';
 
   // Endpoints on each production service
   static const String strokeQaPredict = '/predict';
