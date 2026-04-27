@@ -7,11 +7,29 @@ import 'api_service.dart';
 class ScanService {
   final ApiService _apiService;
   late final Dio _imageDio;
+  late final Dio _faceDio;
+  late final Dio _handDio;
 
   ScanService(this._apiService) {
     _imageDio = Dio(
       BaseOptions(
         baseUrl: ApiConstants.strokeImageServiceUrl,
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 60),
+        sendTimeout: const Duration(seconds: 60),
+      ),
+    );
+    _faceDio = Dio(
+      BaseOptions(
+        baseUrl: ApiConstants.strokeFaceServiceUrl,
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 60),
+        sendTimeout: const Duration(seconds: 60),
+      ),
+    );
+    _handDio = Dio(
+      BaseOptions(
+        baseUrl: ApiConstants.strokeHandServiceUrl,
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 60),
         sendTimeout: const Duration(seconds: 60),
@@ -63,6 +81,85 @@ class ScanService {
       };
     } catch (e) {
       log('ScanService: Upload failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Upload a face image to the face stroke detection service.
+  Future<Map<String, dynamic>> uploadFaceScan(File imageFile) async {
+    log('ScanService: Uploading face scan to ${ApiConstants.strokeFaceServiceUrl}...');
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final formData = FormData.fromMap({
+        'image': MultipartFile.fromBytes(
+          bytes,
+          filename: imageFile.path.split('/').last,
+        ),
+      });
+
+      final response = await _faceDio.post(
+        ApiConstants.strokeFacePredict,
+        data: formData,
+        options: Options(contentType: Headers.multipartFormDataContentType),
+      );
+
+      log('ScanService: Face response: ${response.data}');
+      final data = response.data as Map<String, dynamic>;
+
+      return {
+        'result': (data['result'] as String? ?? 'UNKNOWN').toUpperCase(),
+        'confidence': data['confidence'],
+        'issues': data['issues'] ?? [],
+        'reason': data['reason'] ?? '',
+        'stroke_score': data['stroke_score'] ?? 0,
+        'metrics': data['metrics'] ?? {},
+        'model': 'Face Stroke Detection Model',
+        'source': 'AI',
+        'scan_type': 'face',
+      };
+    } catch (e) {
+      log('ScanService: Face upload failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Upload a hand image to the hand stroke detection service.
+  Future<Map<String, dynamic>> uploadHandScan(File imageFile) async {
+    log('ScanService: Uploading hand scan to ${ApiConstants.strokeHandServiceUrl}...');
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final formData = FormData.fromMap({
+        'image': MultipartFile.fromBytes(
+          bytes,
+          filename: imageFile.path.split('/').last,
+        ),
+      });
+
+      final response = await _handDio.post(
+        ApiConstants.strokeHandPredict,
+        data: formData,
+        options: Options(contentType: Headers.multipartFormDataContentType),
+      );
+
+      log('ScanService: Hand response: ${response.data}');
+      final data = response.data as Map<String, dynamic>;
+
+      return {
+        'result': (data['result'] as String? ?? 'UNKNOWN').toUpperCase(),
+        'confidence': data['confidence'],
+        'issues': data['issues'] ?? [],
+        'left_fingers': data['left_fingers'] ?? 0,
+        'right_fingers': data['right_fingers'] ?? 0,
+        'finger_diff': data['finger_diff'] ?? 0,
+        'stroke_score': data['stroke_score'] ?? 0,
+        'left_is_open': data['left_is_open'] ?? false,
+        'right_is_open': data['right_is_open'] ?? false,
+        'model': 'Hand Stroke Detection Model',
+        'source': 'AI',
+        'scan_type': 'hand',
+      };
+    } catch (e) {
+      log('ScanService: Hand upload failed: $e');
       rethrow;
     }
   }
