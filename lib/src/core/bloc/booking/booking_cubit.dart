@@ -8,7 +8,7 @@ class BookingCubit extends Cubit<BookingState> {
 
   BookingCubit(this._bookingService) : super(BookingInitial());
 
-  Future<void> loadBookings(int userId) async {
+  Future<void> loadBookings(String userId) async {
     emit(BookingLoading());
     try {
       final bookings = await _bookingService.getBookings(userId);
@@ -23,14 +23,13 @@ class BookingCubit extends Cubit<BookingState> {
     try {
       await _bookingService.createBooking(booking);
       emit(const BookingSuccess('Booking created successfully'));
-      // Reload bookings to update the list
       await loadBookings(booking.userId);
     } catch (e) {
       emit(BookingError(e.toString()));
     }
   }
 
-  Future<void> cancelBooking(int bookingId, int userId) async {
+  Future<void> cancelBooking(String bookingId, String userId) async {
     // We don't want to emit loading here if we want to keep the list visible
     // But for simplicity, let's emit loading or handle it optimistically
     try {

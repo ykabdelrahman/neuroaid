@@ -1,53 +1,41 @@
 import 'dart:convert';
 import 'dart:developer';
 
+import 'package:appwrite/appwrite.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/auth_response.dart';
 import '../models/user_model.dart';
-import '../constants/api_constants.dart';
-import 'api_service.dart';
+import 'appwrite_service.dart';
 
 class AuthService {
-  final ApiService _apiService;
-  static const String _tokenKey = 'auth_token';
+  final AppwriteService _appwrite;
   static const String _userKey = 'user_data';
 
-  AuthService(this._apiService);
+  AuthService(this._appwrite);
 
-  // Login
   Future<AuthResponse> login({
     required String email,
     required String password,
   }) async {
-    log('AuthService: Attempting login for email: $email');
+    log('AuthService: Login $email');
     try {
-      final response = await _apiService.post(
-        ApiConstants.authLogin, // Updated to use gateway route
-        data: {'email': email, 'password': password},
+      final session = await _appwrite.account.createEmailPasswordSession(
+        email: email,
+        password: password,
       );
 
-      log('AuthService: Login API response received: ${response.data}');
+      final user = await _getOrCreateUserProfile(session.userId, email);
+      await _saveUser(user);
 
-      final authResponse = AuthResponse.fromJson(response.data);
-
-      // Save token and user data
-      await _saveAuthData(authResponse);
-
-      // Save credentials for auto-fill
-      await saveCredentials(email, password);
-
-      // Set token in API service
-      _apiService.setToken(authResponse.accessToken);
-
-      log('AuthService: Login successful for user: ${authResponse.user.email}');
-      return authResponse;
-    } catch (e) {
-      log('AuthService: Login failed. Error: $e');
-      rethrow;
+      log('AuthService: Login successful');
+      return AuthResponse(accessToken: session.$id, user: user);
+    } on AppwriteException catch (e) {
+      log('AuthService: Login failed: ${e.message}');
+      throw Exception(e.message ?? 'Login failed');
     }
   }
 
-  // Register
   Future<AuthResponse> register({
     required String email,
     required String password,
@@ -56,206 +44,181 @@ class AuthService {
     String role = 'client',
     bool isActive = true,
   }) async {
-    log(
-      'AuthService: Attempting register for email: $email, name: $name, role: $role',
-    );
+    log('AuthService: Register $email');
     try {
-      final response = await _apiService.post(
-        ApiConstants.authRegister, // Updated to use gateway route
+      // Create Appwrite account
+      await _appwrite.account.create(
+        userId: ID.unique(),
+        email: email,
+        password: password,
+        name: name,
+      );
+
+      // Create session
+      final session = await _appwrite.account.createEmailPasswordSession(
+        email: email,
+        password: password,
+      );
+
+      // Create user profile document
+      final doc = await _appwrite.databases.createDocument(
+        databaseId: AppwriteService.databaseId,
+        collectionId: AppwriteService.usersCollection,
+        documentId: session.userId,
         data: {
-          'email': email,
-          'password': password,
           'name': name,
-          'phone': phone,
+          'email': email,
           'role': role,
+          'phone': phone,
           'isActive': isActive,
+          'createdAt': DateTime.now().toIso8601String(),
+          'password': '',
         },
       );
 
-      log('AuthService: Register API response received: ${response.data}');
+      final user = UserModel.fromJson(doc.data..addAll({'\$id': doc.$id}));
+      await _saveUser(user);
 
-      final authResponse = AuthResponse.fromJson(response.data);
-
-      // Save token and user data
-      await _saveAuthData(authResponse);
-
-      // Set token in API service
-      _apiService.setToken(authResponse.accessToken);
-
-      log(
-        'AuthService: Register successful for user: ${authResponse.user.email}',
-      );
-      return authResponse;
-    } catch (e) {
-      log('AuthService: Register failed. Error: $e');
-      rethrow;
+      log('AuthService: Register successful');
+      return AuthResponse(accessToken: session.$id, user: user);
+    } on AppwriteException catch (e) {
+      log('AuthService: Register failed: ${e.message}');
+      throw Exception(e.message ?? 'Registration failed');
     }
   }
 
-  // Logout
   Future<void> logout() async {
-    log('AuthService: Attempting logout');
+    log('AuthService: Logout');
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_tokenKey);
-      await prefs.remove(_userKey);
-      _apiService.clearToken();
-      log('AuthService: Logout successful. Local data cleared.');
-    } catch (e) {
-      log('AuthService: Logout failed. Error: $e');
-      rethrow;
-    }
+      await _appwrite.account.deleteSession(sessionId: 'current');
+    } catch (_) {}
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_userKey);
   }
 
-  // Check if user is logged in
   Future<bool> isLoggedIn() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString(_tokenKey);
-      final isLoggedIn = token != null && token.isNotEmpty;
-      log('AuthService: isLoggedIn check: $isLoggedIn');
-      return isLoggedIn;
-    } catch (e) {
-      log('AuthService: isLoggedIn check failed. Error: $e');
+      await _appwrite.account.get();
+      return true;
+    } catch (_) {
       return false;
     }
   }
 
-  // Get saved token
   Future<String?> getToken() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString(_tokenKey);
-      return token;
-    } catch (e) {
-      log('AuthService: getToken failed. Error: $e');
-      return null;
-    }
+      final sessions = await _appwrite.account.listSessions();
+      if (sessions.sessions.isNotEmpty) {
+        return sessions.sessions.first.$id;
+      }
+    } catch (_) {}
+    return null;
   }
 
-  // Get saved user
   Future<UserModel?> getUser() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userJson = prefs.getString(_userKey);
-
-      if (userJson == null) {
-        log('AuthService: No saved user data found');
-        return null;
+      if (userJson != null) {
+        return UserModel.fromJson(jsonDecode(userJson));
       }
-
-      log('AuthService: Retrieving saved user data: $userJson');
-
-      // Parse JSON string to Map
-      final Map<String, dynamic> userMap = jsonDecode(userJson);
-      return UserModel.fromJson(userMap);
+      // Fallback: fetch from Appwrite
+      final account = await _appwrite.account.get();
+      return await _getOrCreateUserProfile(account.$id, account.email);
     } catch (e) {
-      log('AuthService: Error getting user: $e');
+      log('AuthService: getUser error: $e');
       return null;
     }
   }
 
-  // Initialize auth (call on app start)
   Future<void> initAuth() async {
-    log('AuthService: Initializing auth...');
-    try {
-      final token = await getToken();
-      if (token != null) {
-        _apiService.setToken(token);
-        log('AuthService: Auth initialized with existing token');
-      } else {
-        log('AuthService: No existing token found during initialization');
-      }
-    } catch (e) {
-      log('AuthService: Error initializing auth: $e');
-    }
+    log('AuthService: Init auth');
+    // Session is managed by Appwrite SDK automatically — nothing extra needed
   }
 
-  // Save auth data to local storage
-  Future<void> _saveAuthData(AuthResponse authResponse) async {
-    log('AuthService: Saving auth data locally...');
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_tokenKey, authResponse.accessToken);
-      await prefs.setString(_userKey, jsonEncode(authResponse.user.toJson()));
-      log('AuthService: Auth data saved successfully');
-    } catch (e) {
-      log('AuthService: Error saving auth data: $e');
-      rethrow;
-    }
-  }
-
-  // Save credentials
-  Future<void> saveCredentials(String email, String password) async {
-    log('AuthService: Saving credentials for $email');
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('saved_email', email);
-      await prefs.setString('saved_password', password);
-      log('AuthService: Credentials saved successfully');
-    } catch (e) {
-      log('AuthService: Error saving credentials: $e');
-    }
-  }
-
-  // Get saved credentials
-  Future<Map<String, String>?> getCredentials() async {
-    log('AuthService: Retrieving saved credentials...');
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final email = prefs.getString('saved_email');
-      final password = prefs.getString('saved_password');
-
-      if (email != null && password != null) {
-        log('AuthService: Credentials found for $email');
-        return {'email': email, 'password': password};
-      }
-      log('AuthService: No saved credentials found');
-      return null;
-    } catch (e) {
-      log('AuthService: Error retrieving credentials: $e');
-      return null;
-    }
-  }
-
-  // Clear credentials
-  Future<void> clearCredentials() async {
-    log('AuthService: Clearing saved credentials');
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('saved_email');
-      await prefs.remove('saved_password');
-      log('AuthService: Credentials cleared');
-    } catch (e) {
-      log('AuthService: Error clearing credentials: $e');
-    }
-  }
-
-  // Update user profile
   Future<UserModel> updateUserProfile(UserModel user) async {
-    log('AuthService: Updating user profile for id: ${user.id}');
+    log('AuthService: Updating profile for ${user.id}');
     try {
-      // Update on backend
-      final response = await _apiService.patch(
-        ApiConstants.userById(
-          user.id.toString(),
-        ), // Updated to use gateway route
-        data: user.toJson(),
+      // Update Appwrite account name if changed
+      await _appwrite.account.updateName(name: user.name);
+
+      // Update user document
+      final doc = await _appwrite.databases.updateDocument(
+        databaseId: AppwriteService.databaseId,
+        collectionId: AppwriteService.usersCollection,
+        documentId: user.id,
+        data: {
+          'name': user.name,
+          'email': user.email,
+          'phone': user.phone,
+          'role': user.role,
+          'isActive': user.isActive,
+        },
       );
 
-      log('AuthService: Update API response received: ${response.data}');
+      final updated = UserModel.fromJson(doc.data..addAll({'\$id': doc.$id}));
+      await _saveUser(updated);
+      return updated;
+    } on AppwriteException catch (e) {
+      throw Exception(e.message ?? 'Update failed');
+    }
+  }
 
-      final updatedUser = UserModel.fromJson(response.data);
+  Future<void> saveCredentials(String email, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_email', email);
+    await prefs.setString('saved_password', password);
+  }
 
-      // Update local storage
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_userKey, jsonEncode(updatedUser.toJson()));
+  Future<Map<String, String>?> getCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString('saved_email');
+    final password = prefs.getString('saved_password');
+    if (email != null && password != null) return {'email': email, 'password': password};
+    return null;
+  }
 
-      log('AuthService: User profile updated successfully');
-      return updatedUser;
-    } catch (e) {
-      log('AuthService: Error updating user profile: $e');
+  Future<void> clearCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('saved_email');
+    await prefs.remove('saved_password');
+  }
+
+  // ── private helpers ──────────────────────────────────────────────────────
+
+  Future<UserModel> _getOrCreateUserProfile(String userId, String email) async {
+    try {
+      final doc = await _appwrite.databases.getDocument(
+        databaseId: AppwriteService.databaseId,
+        collectionId: AppwriteService.usersCollection,
+        documentId: userId,
+      );
+      return UserModel.fromJson(doc.data..addAll({'\$id': doc.$id}));
+    } on AppwriteException catch (e) {
+      if (e.code == 404) {
+        // Document doesn't exist yet — create a minimal one
+        final doc = await _appwrite.databases.createDocument(
+          databaseId: AppwriteService.databaseId,
+          collectionId: AppwriteService.usersCollection,
+          documentId: userId,
+          data: {
+            'name': email.split('@').first,
+            'email': email,
+            'role': 'client',
+            'phone': '',
+            'isActive': true,
+            'createdAt': DateTime.now().toIso8601String(),
+            'password': '',
+          },
+        );
+        return UserModel.fromJson(doc.data..addAll({'\$id': doc.$id}));
+      }
       rethrow;
     }
+  }
+
+  Future<void> _saveUser(UserModel user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userKey, jsonEncode(user.toJson()));
   }
 }

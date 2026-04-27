@@ -36,13 +36,10 @@ import 'package:neuroaid/src/features/search/filter_screen.dart';
 import 'package:neuroaid/src/features/profile/privacy_policy_screen.dart';
 import 'package:neuroaid/src/features/scan/scan_screen.dart';
 import 'package:neuroaid/src/features/notifications/notification_screen.dart';
-import 'package:neuroaid/src/features/bootstrap/server_config_screen.dart';
-
 class AppRouter {
   AppRouter._();
 
   static const String splash = '/';
-  static const String serverConfig = '/server-config';
   static const String onboarding = '/onboarding';
   static const String roleSelection = '/role-selection';
   static const String welcome = '/welcome';
@@ -82,8 +79,6 @@ class AppRouter {
     switch (settings.name) {
       case splash:
         return _material(const SplashScreen());
-      case serverConfig:
-        return _material(const ServerConfigScreen());
       case onboarding:
         return _material(const OnboardingScreen());
       case roleSelection:

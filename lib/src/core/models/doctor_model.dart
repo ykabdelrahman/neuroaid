@@ -1,5 +1,5 @@
 class DoctorModel {
-  final int id;
+  final String id;
   final String name;
   final String specialty;
   final String experience;
@@ -25,12 +25,12 @@ class DoctorModel {
 
   factory DoctorModel.fromJson(Map<String, dynamic> json) {
     return DoctorModel(
-      id: json['id'] as int? ?? 0,
+      id: (json['\$id'] ?? json['id'] ?? '').toString(),
       name: json['name'] as String? ?? 'Unknown Doctor',
       specialty: json['specialty'] as String? ?? 'General',
       experience: json['experience'] as String? ?? 'N/A',
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
-      reviews: json['reviews'] as int? ?? 0,
+      reviews: (json['reviews'] as num?)?.toInt() ?? 0,
       distance: json['distance'] as String? ?? 'Unknown',
       available: json['available'] as bool? ?? false,
       nextAvailable: json['nextAvailable'] as String? ?? 'N/A',

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/routes/app_router.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -51,28 +49,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: _darkMode,
               onChanged: (value) {
                 setState(() => _darkMode = value);
-              },
-              showDivider: false,
-            ),
-          ]),
-
-          const SizedBox(height: 24),
-
-          // Network & Developer Section
-          _buildSectionTitle('Network & Developer'),
-          const SizedBox(height: 8),
-          _buildCard([
-            _buildNavigationTile(
-              icon: FontAwesomeIcons.server,
-              title: 'Server Configuration',
-              onTap: () async {
-                // Clear skip flag when manually accessing server config
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.remove('skip_server_config');
-
-                if (mounted) {
-                  Navigator.of(context).pushNamed(AppRouter.serverConfig);
-                }
               },
               showDivider: false,
             ),

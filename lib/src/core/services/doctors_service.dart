@@ -1,116 +1,107 @@
 import 'dart:developer';
 
-import 'package:neuroaid/src/core/models/doctor_model.dart';
-import 'package:neuroaid/src/core/constants/api_constants.dart';
-import 'package:neuroaid/src/core/services/api_service.dart';
+import 'package:appwrite/appwrite.dart';
+
+import '../models/doctor_model.dart';
+import 'appwrite_service.dart';
 
 class DoctorsService {
-  final ApiService _apiService;
+  final AppwriteService _appwrite;
 
-  DoctorsService(this._apiService);
+  DoctorsService(this._appwrite);
 
   Future<List<DoctorModel>> getDoctors() async {
+    log('DoctorsService: Fetching doctors from Appwrite...');
     try {
-      log('DoctorsService: Fetching doctors via gateway...');
-      final response = await _apiService.get(
-        ApiConstants.doctors, // Updated to use gateway route: /api/main/doctors
+      final result = await _appwrite.databases.listDocuments(
+        databaseId: AppwriteService.databaseId,
+        collectionId: AppwriteService.doctorsCollection,
       );
-
-      log('DoctorsService: Response received. Status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = response.data;
-        log('DoctorsService: Parsing ${data.length} doctors');
-        return data.map((json) => DoctorModel.fromJson(json)).toList();
-      } else {
-        log(
-          'DoctorsService: Failed to fetch doctors. Status: ${response.statusCode}',
-        );
-        throw Exception('Failed to load doctors');
-      }
-    } catch (e) {
-      log('DoctorsService: Error fetching doctors: $e');
-      rethrow;
+      return result.documents
+          .map((d) => DoctorModel.fromJson(d.data..addAll({'\$id': d.$id})))
+          .toList();
+    } on AppwriteException catch (e) {
+      log('DoctorsService: Error: ${e.message}');
+      throw Exception(e.message ?? 'Failed to load doctors');
     }
   }
 
-  // Get favorites for a user via API Gateway
-  Future<List<DoctorModel>> getFavorites(int userId) async {
+  Future<List<DoctorModel>> getFavorites(String userId) async {
+    log('DoctorsService: Fetching favorites for $userId');
     try {
-      log('DoctorsService: Fetching favorites for user $userId via gateway...');
-      // Get favorites relations
-      final response = await _apiService.get(
-        '${ApiConstants.favorites}?userId=$userId', // Updated: /api/main/favorites
+      final result = await _appwrite.databases.listDocuments(
+        databaseId: AppwriteService.databaseId,
+        collectionId: AppwriteService.favoritesCollection,
+        queries: [Query.equal('userId', userId)],
       );
 
-      if (response.statusCode == 200) {
-        // Extract the 'favorites' array from the response
-        final List<dynamic> favoritesData =
-            response.data['favorites'] ?? response.data;
-        if (favoritesData.isEmpty) return [];
+      if (result.documents.isEmpty) return [];
 
-        // The backend now returns doctor info embedded in each favorite
-        // So we can extract doctors directly from favorites
-        final List<DoctorModel> favoriteDoctors = [];
+      final doctorIds = result.documents.map((d) => d.data['doctorId'] as String).toList();
 
-        for (var favorite in favoritesData) {
-          if (favorite['doctor'] != null) {
-            // Create a DoctorModel from the embedded doctor info
-            final doctorJson = favorite['doctor'] as Map<String, dynamic>;
-            // Add the doctorId to the doctor object
-            doctorJson['id'] = favorite['doctorId'];
-
-            // Add default fields if missing
-            doctorJson['rating'] = doctorJson['rating'] ?? 0.0;
-            doctorJson['reviews'] = doctorJson['reviews'] ?? 0;
-            doctorJson['experience'] = doctorJson['experience'] ?? '';
-            doctorJson['available'] = doctorJson['available'] ?? true;
-            doctorJson['distance'] = doctorJson['distance'] ?? '';
-            doctorJson['nextAvailable'] = doctorJson['nextAvailable'] ?? '';
-
-            favoriteDoctors.add(DoctorModel.fromJson(doctorJson));
-          }
-        }
-
-        return favoriteDoctors;
+      final List<DoctorModel> doctors = [];
+      for (final doctorId in doctorIds) {
+        try {
+          final doc = await _appwrite.databases.getDocument(
+            databaseId: AppwriteService.databaseId,
+            collectionId: AppwriteService.doctorsCollection,
+            documentId: doctorId,
+          );
+          doctors.add(DoctorModel.fromJson(doc.data..addAll({'\$id': doc.$id})));
+        } catch (_) {}
       }
-      return [];
-    } catch (e) {
-      log('DoctorsService: Error fetching favorites: $e');
+      return doctors;
+    } on AppwriteException catch (e) {
+      log('DoctorsService: Error fetching favorites: ${e.message}');
       return [];
     }
   }
 
-  // Add to favorites via API Gateway
-  Future<void> addToFavorites(int userId, int doctorId) async {
+  Future<void> addToFavorites(String userId, String doctorId) async {
+    log('DoctorsService: Adding doctor $doctorId to favorites for $userId');
     try {
-      log('DoctorsService: Adding to favorites via gateway...');
-      await _apiService.post(
-        ApiConstants
-            .favorites, // Updated to use gateway route: /api/main/favorites
+      // Check if already favorited
+      final existing = await _appwrite.databases.listDocuments(
+        databaseId: AppwriteService.databaseId,
+        collectionId: AppwriteService.favoritesCollection,
+        queries: [
+          Query.equal('userId', userId),
+          Query.equal('doctorId', doctorId),
+        ],
+      );
+      if (existing.documents.isNotEmpty) return;
+
+      await _appwrite.databases.createDocument(
+        databaseId: AppwriteService.databaseId,
+        collectionId: AppwriteService.favoritesCollection,
+        documentId: ID.unique(),
         data: {'userId': userId, 'doctorId': doctorId},
       );
-      log('DoctorsService: Added to favorites successfully');
-    } catch (e) {
-      log('DoctorsService: Error adding favorite: $e');
-      rethrow;
+    } on AppwriteException catch (e) {
+      throw Exception(e.message ?? 'Failed to add favorite');
     }
   }
 
-  // Remove from favorites via API Gateway
-  Future<void> removeFromFavorites(int userId, int doctorId) async {
+  Future<void> removeFromFavorites(String userId, String doctorId) async {
+    log('DoctorsService: Removing doctor $doctorId from favorites for $userId');
     try {
-      log('DoctorsService: Removing from favorites via gateway...');
-      // The backend accepts doctorId directly in the DELETE endpoint
-      await _apiService.delete(
-        ApiConstants.favoriteById(
-          doctorId.toString(),
-        ), // Updated: /api/main/favorites/{id}
+      final result = await _appwrite.databases.listDocuments(
+        databaseId: AppwriteService.databaseId,
+        collectionId: AppwriteService.favoritesCollection,
+        queries: [
+          Query.equal('userId', userId),
+          Query.equal('doctorId', doctorId),
+        ],
       );
-      log('DoctorsService: Removed from favorites successfully');
-    } catch (e) {
-      log('DoctorsService: Error removing favorite: $e');
-      rethrow;
+      for (final doc in result.documents) {
+        await _appwrite.databases.deleteDocument(
+          databaseId: AppwriteService.databaseId,
+          collectionId: AppwriteService.favoritesCollection,
+          documentId: doc.$id,
+        );
+      }
+    } on AppwriteException catch (e) {
+      throw Exception(e.message ?? 'Failed to remove favorite');
     }
   }
 }

@@ -1,12 +1,12 @@
 class BookingModel {
-  final int id;
-  final int userId;
-  final int doctorId;
+  final String id;
+  final String userId;
+  final String doctorId;
   final String doctorName;
   final String doctorSpecialty;
   final DateTime date;
   final String time;
-  final String status; // 'upcoming', 'completed', 'canceled'
+  final String status;
   final String? notes;
   final DateTime? createdAt;
 
@@ -24,7 +24,6 @@ class BookingModel {
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
-    // Extract doctor info from nested 'doctor' object or direct fields
     String doctorName = '';
     String doctorSpecialty = '';
 
@@ -37,24 +36,25 @@ class BookingModel {
     }
 
     return BookingModel(
-      id: json['id'] as int,
-      userId: json['userId'] as int,
-      doctorId: json['doctorId'] as int,
+      id: (json['\$id'] ?? json['id'] ?? '').toString(),
+      userId: (json['userId'] ?? '').toString(),
+      doctorId: (json['doctorId'] ?? '').toString(),
       doctorName: doctorName,
       doctorSpecialty: doctorSpecialty,
       date: DateTime.parse(json['date'] as String),
       time: json['time'] as String,
-      status: json['status'] as String,
+      status: json['status'] as String? ?? 'upcoming',
       notes: json['notes'] as String?,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
-          : null,
+      createdAt: json['\$createdAt'] != null
+          ? DateTime.tryParse(json['\$createdAt'] as String)
+          : json['createdAt'] != null
+              ? DateTime.tryParse(json['createdAt'] as String)
+              : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
       'userId': userId,
       'doctorId': doctorId,
       'doctorName': doctorName,
@@ -63,7 +63,6 @@ class BookingModel {
       'time': time,
       'status': status,
       if (notes != null) 'notes': notes,
-      if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
     };
   }
 }

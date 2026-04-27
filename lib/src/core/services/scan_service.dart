@@ -2,15 +2,13 @@ import 'dart:io';
 import 'dart:developer';
 import 'package:dio/dio.dart';
 import '../constants/api_constants.dart';
-import 'api_service.dart';
 
 class ScanService {
-  final ApiService _apiService;
   late final Dio _imageDio;
   late final Dio _faceDio;
   late final Dio _handDio;
 
-  ScanService(this._apiService) {
+  ScanService() {
     _imageDio = Dio(
       BaseOptions(
         baseUrl: ApiConstants.strokeImageServiceUrl,
@@ -164,29 +162,6 @@ class ScanService {
     }
   }
 
-  /// Get scan result by ID via the main API gateway.
-  Future<Map<String, dynamic>> getScanResult(int scanId) async {
-    log('ScanService: Fetching scan result for ID: $scanId...');
-    try {
-      final response = await _apiService.get(ApiConstants.scanById(scanId.toString()));
-      log('ScanService: Scan result retrieved: ${response.data}');
-      return response.data;
-    } catch (e) {
-      log('ScanService: Failed to get scan result: $e');
-      rethrow;
-    }
-  }
-
-  /// Get all scans for the current user via the main API gateway.
-  Future<List<Map<String, dynamic>>> getUserScans() async {
-    log('ScanService: Fetching user scans...');
-    try {
-      final response = await _apiService.get(ApiConstants.scans);
-      log('ScanService: User scans retrieved');
-      return List<Map<String, dynamic>>.from(response.data);
-    } catch (e) {
-      log('ScanService: Failed to get user scans: $e');
-      rethrow;
-    }
-  }
+  Future<Map<String, dynamic>> getScanResult(String scanId) async => {};
+  Future<List<Map<String, dynamic>>> getUserScans() async => [];
 }

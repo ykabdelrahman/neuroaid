@@ -11,7 +11,7 @@ class AppointmentCard extends StatelessWidget {
   final BookingModel booking;
   final String status;
   final String action;
-  final Function(int) onAction;
+  final Function(String) onAction;
 
   const AppointmentCard({
     super.key,

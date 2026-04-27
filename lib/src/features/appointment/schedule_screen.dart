@@ -305,7 +305,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       ).format(DateTime(0, 1, 1, t.hour, t.minute));
 
       final booking = BookingModel(
-        id: 0, // Auto-generated
+        id: '',
         userId: authState.user.id,
         doctorId: widget.doctor.id,
         doctorName: widget.doctor.name,

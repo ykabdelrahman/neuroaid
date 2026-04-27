@@ -1,5 +1,5 @@
 class UserModel {
-  final int id;
+  final String id;
   final String email;
   final String name;
   final String role;
@@ -19,14 +19,13 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] as int? ?? 0,
+      id: (json['\$id'] ?? json['id'] ?? '').toString(),
       email: json['email'] as String? ?? '',
       name: json['name'] as String? ?? '',
       role: json['role'] as String? ?? 'client',
       phone: json['phone'] as String? ?? '',
       isActive: json['isActive'] as bool? ?? true,
-      createdAt:
-          json['createdAt'] as String? ?? DateTime.now().toIso8601String(),
+      createdAt: (json['\$createdAt'] ?? json['createdAt'] ?? DateTime.now().toIso8601String()).toString(),
     );
   }
 
@@ -43,7 +42,7 @@ class UserModel {
   }
 
   UserModel copyWith({
-    int? id,
+    String? id,
     String? email,
     String? name,
     String? role,

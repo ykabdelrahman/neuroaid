@@ -3,41 +3,17 @@ import 'dart:developer';
 import 'package:dio/dio.dart';
 import '../constants/api_constants.dart';
 
-/// Legacy ApiConfig class - now redirects to ApiConstants
-/// Kept for backward compatibility
-@deprecated
-class ApiConfig {
-  // Redirect to ApiConstants
-  static String get baseUrl => ApiConstants.baseUrl;
-  static const Duration connectTimeout = ApiConstants.connectTimeout;
-  static const Duration receiveTimeout = ApiConstants.receiveTimeout;
-  static const Map<String, String> headers = ApiConstants.headers;
-
-  /// Initialize is no longer needed but kept for compatibility
-  static Future<void> initialize() async {
-    log('🔄 ApiConfig.initialize() - Now using ApiConstants');
-    log('🌐 Gateway URL: ${ApiConstants.baseUrl}');
-    log('📍 Platform: ${ApiConstants.getEnvironmentInfo()['platform']}');
-    log('📍 Is Emulator: ${ApiConstants.isEmulator}');
-  }
-
-  static void reset() => ApiConstants.reset();
-}
-
 class ApiService {
   late final Dio _dio;
   String? _token;
 
   ApiService() {
-    // Log which URL is being used
-    log('🌐 ApiService initialized with base URL: ${ApiConfig.baseUrl}');
-
     _dio = Dio(
       BaseOptions(
-        baseUrl: ApiConfig.baseUrl,
-        connectTimeout: ApiConfig.connectTimeout,
-        receiveTimeout: ApiConfig.receiveTimeout,
-        headers: ApiConfig.headers,
+        baseUrl: '',
+        connectTimeout: ApiConstants.connectTimeout,
+        receiveTimeout: ApiConstants.receiveTimeout,
+        headers: ApiConstants.headers,
       ),
     );
 

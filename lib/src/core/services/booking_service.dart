@@ -1,79 +1,93 @@
 import 'dart:developer';
-import 'package:neuroaid/src/core/models/booking_model.dart';
-import 'package:neuroaid/src/core/constants/api_constants.dart';
-import 'package:neuroaid/src/core/services/api_service.dart';
+
+import 'package:appwrite/appwrite.dart';
+
+import '../models/booking_model.dart';
+import '../models/doctor_model.dart';
+import 'appwrite_service.dart';
 
 class BookingService {
-  final ApiService _apiService;
+  final AppwriteService _appwrite;
 
-  BookingService(this._apiService);
+  BookingService(this._appwrite);
 
-  // Get bookings for a user via API Gateway
-  Future<List<BookingModel>> getBookings(int userId) async {
+  Future<List<BookingModel>> getBookings(String userId) async {
+    log('BookingService: Fetching bookings for $userId');
     try {
-      log('BookingService: Fetching bookings for user $userId via gateway...');
-      final response = await _apiService.get(
-        '${ApiConstants.bookings}?userId=$userId', // Updated: /api/main/bookings
+      final result = await _appwrite.databases.listDocuments(
+        databaseId: AppwriteService.databaseId,
+        collectionId: AppwriteService.bookingsCollection,
+        queries: [Query.equal('userId', userId)],
       );
 
-      if (response.statusCode == 200) {
-        // Extract the 'bookings' array from the response
-        final List<dynamic> data = response.data['bookings'] ?? response.data;
-        log('BookingService: Found ${data.length} bookings');
-        return data.map((json) => BookingModel.fromJson(json)).toList();
-      } else {
-        throw Exception('Failed to load bookings');
+      final bookings = <BookingModel>[];
+      for (final doc in result.documents) {
+        final data = Map<String, dynamic>.from(doc.data);
+        data['\$id'] = doc.$id;
+
+        // Enrich with doctor info
+        final doctorId = data['doctorId'] as String? ?? '';
+        if (doctorId.isNotEmpty && (data['doctorName'] == null || (data['doctorName'] as String).isEmpty)) {
+          try {
+            final doctorDoc = await _appwrite.databases.getDocument(
+              databaseId: AppwriteService.databaseId,
+              collectionId: AppwriteService.doctorsCollection,
+              documentId: doctorId,
+            );
+            final doctor = DoctorModel.fromJson(doctorDoc.data..addAll({'\$id': doctorDoc.$id}));
+            data['doctorName'] = doctor.name;
+            data['doctorSpecialty'] = doctor.specialty;
+          } catch (_) {}
+        }
+
+        bookings.add(BookingModel.fromJson(data));
       }
-    } catch (e) {
-      log('BookingService: Error fetching bookings: $e');
-      rethrow;
+      return bookings;
+    } on AppwriteException catch (e) {
+      log('BookingService: Error: ${e.message}');
+      throw Exception(e.message ?? 'Failed to load bookings');
     }
   }
 
-  // Create a new booking via API Gateway
   Future<BookingModel> createBooking(BookingModel booking) async {
+    log('BookingService: Creating booking for user ${booking.userId}');
     try {
-      log('BookingService: Creating booking via gateway...');
-      // Remove ID for creation as it's auto-generated
-      final Map<String, dynamic> data = booking.toJson();
-      data.remove('id');
-
-      final response = await _apiService.post(
-        ApiConstants
-            .bookings, // Updated to use gateway route: /api/main/bookings
-        data: data,
+      final doc = await _appwrite.databases.createDocument(
+        databaseId: AppwriteService.databaseId,
+        collectionId: AppwriteService.bookingsCollection,
+        documentId: ID.unique(),
+        data: {
+          'userId': booking.userId,
+          'doctorId': booking.doctorId,
+          'date': booking.date.toIso8601String(),
+          'time': booking.time,
+          'status': booking.status,
+          if (booking.notes != null) 'notes': booking.notes,
+        },
       );
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        log('BookingService: Booking created successfully');
-        // Extract the 'booking' object from the response
-        final bookingData = response.data['booking'] ?? response.data;
-        return BookingModel.fromJson(bookingData);
-      } else {
-        throw Exception('Failed to create booking');
-      }
-    } catch (e) {
-      log('BookingService: Error creating booking: $e');
-      rethrow;
+      final data = Map<String, dynamic>.from(doc.data);
+      data['\$id'] = doc.$id;
+      data['doctorName'] = booking.doctorName;
+      data['doctorSpecialty'] = booking.doctorSpecialty;
+
+      return BookingModel.fromJson(data);
+    } on AppwriteException catch (e) {
+      throw Exception(e.message ?? 'Failed to create booking');
     }
   }
 
-  // Cancel a booking via API Gateway
-  Future<void> cancelBooking(int bookingId) async {
+  Future<void> cancelBooking(String bookingId) async {
+    log('BookingService: Canceling booking $bookingId');
     try {
-      log('BookingService: Canceling booking $bookingId via gateway...');
-      // We can either delete it or update status to 'canceled'
-      // Updating status is better for history
-      await _apiService.patch(
-        ApiConstants.bookingById(
-          bookingId.toString(),
-        ), // Updated: /api/main/bookings/{id}
+      await _appwrite.databases.updateDocument(
+        databaseId: AppwriteService.databaseId,
+        collectionId: AppwriteService.bookingsCollection,
+        documentId: bookingId,
         data: {'status': 'canceled'},
       );
-      log('BookingService: Booking canceled successfully');
-    } catch (e) {
-      log('BookingService: Error canceling booking: $e');
-      rethrow;
+    } on AppwriteException catch (e) {
+      throw Exception(e.message ?? 'Failed to cancel booking');
     }
   }
 }

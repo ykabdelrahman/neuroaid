@@ -4,7 +4,6 @@ import 'package:neuroaid/src/core/bloc/auth/auth_cubit.dart';
 import 'package:neuroaid/src/core/bloc/auth/auth_state.dart';
 import 'package:neuroaid/src/core/routes/app_router.dart';
 import 'package:neuroaid/src/core/theme/app_colors.dart';
-import 'package:neuroaid/src/core/constants/api_constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -26,17 +25,7 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(milliseconds: 2000));
     if (!mounted) return;
 
-    // Check if server configuration exists
-    final hasConfig = await ApiConstants.hasServerConfig();
     final prefs = await SharedPreferences.getInstance();
-    final skipConfig = prefs.getBool('skip_server_config') ?? false;
-
-    // If no server config and user hasn't chosen to skip, show config screen
-    if (!hasConfig && !skipConfig) {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed(AppRouter.serverConfig);
-      return;
-    }
 
     // Check onboarding status
     final bool onboardingComplete =

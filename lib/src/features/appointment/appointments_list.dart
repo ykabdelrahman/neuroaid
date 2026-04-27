@@ -8,7 +8,7 @@ class AppointmentsList extends StatelessWidget {
   final List<BookingModel> bookings;
   final String status;
   final String action;
-  final Function(int) onAction;
+  final Function(String) onAction;
 
   const AppointmentsList({
     super.key,

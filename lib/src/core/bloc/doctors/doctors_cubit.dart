@@ -23,7 +23,7 @@ class DoctorsCubit extends Cubit<DoctorsState> {
     }
   }
 
-  Future<void> loadFavorites(int userId) async {
+  Future<void> loadFavorites(String userId) async {
     if (state is DoctorsLoaded) {
       final currentState = state as DoctorsLoaded;
       try {
@@ -35,7 +35,7 @@ class DoctorsCubit extends Cubit<DoctorsState> {
     }
   }
 
-  Future<void> toggleFavorite(int userId, DoctorModel doctor) async {
+  Future<void> toggleFavorite(String userId, DoctorModel doctor) async {
     if (state is DoctorsLoaded) {
       final currentState = state as DoctorsLoaded;
       final isFavorite = currentState.favorites.any((d) => d.id == doctor.id);

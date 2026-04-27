@@ -47,6 +47,7 @@ dependencies:
   font_awesome_flutter: ^10.12.0
   device_preview: any
   flutter_markdown: ^0.7.4+1
+  appwrite: ^14.0.0
 
 dev_dependencies:
   flutter_test:
