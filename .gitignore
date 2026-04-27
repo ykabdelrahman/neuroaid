@@ -53,3 +53,11 @@ app.*.map.json
 
 # Environment Variables
 .env
+
+# ML models and large AI files
+ai/
+*.keras
+*.pkl
+*.h5
+*.pt
+*.pth
