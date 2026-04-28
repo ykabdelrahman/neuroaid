@@ -9,15 +9,20 @@ class InfoItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         FaIcon(icon, size: 14, color: const Color(0xFF666666)),
         const SizedBox(width: 6),
-        Text(
-          text,
-          style: const TextStyle(
-            color: Color(0xFF666666),
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+        Flexible(
+          child: Text(
+            text,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: const TextStyle(
+              color: Color(0xFF666666),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],

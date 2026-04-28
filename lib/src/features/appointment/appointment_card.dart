@@ -94,16 +94,24 @@ class AppointmentCard extends StatelessWidget {
             ),
             // Info Row
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                InfoItem(
-                  icon: FontAwesomeIcons.calendar,
-                  text: DateFormat('MMM dd, yyyy').format(booking.date),
+                Expanded(
+                  child: InfoItem(
+                    icon: FontAwesomeIcons.calendar,
+                    text: DateFormat('MMM dd, yyyy').format(booking.date),
+                  ),
                 ),
-                InfoItem(icon: FontAwesomeIcons.clock, text: booking.time),
-                InfoItem(
-                  icon: FontAwesomeIcons.receipt,
-                  text: '#${booking.id}',
+                Expanded(
+                  child: InfoItem(
+                    icon: FontAwesomeIcons.clock,
+                    text: booking.time,
+                  ),
+                ),
+                Expanded(
+                  child: InfoItem(
+                    icon: FontAwesomeIcons.receipt,
+                    text: '#${booking.id.length > 8 ? booking.id.substring(0, 8) : booking.id}',
+                  ),
                 ),
               ],
             ),
