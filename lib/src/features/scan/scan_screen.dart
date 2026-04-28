@@ -149,28 +149,14 @@ class _ScanScreenState extends State<ScanScreen> {
                 'Choose which part to analyze',
                 style: TextStyle(fontSize: 13, color: Colors.black45),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildTypeButton(
-                    icon: FontAwesomeIcons.brain,
-                    label: 'Brain',
-                    emoji: '🧠',
-                    type: ScanType.brain,
-                  ),
-                  _buildTypeButton(
-                    icon: FontAwesomeIcons.faceSmile,
-                    label: 'Face',
-                    emoji: '😊',
-                    type: ScanType.face,
-                  ),
-                  _buildTypeButton(
-                    icon: FontAwesomeIcons.hand,
-                    label: 'Hand',
-                    emoji: '✋',
-                    type: ScanType.hand,
-                  ),
+                  Expanded(child: _buildTypeButton(icon: FontAwesomeIcons.brain, label: 'Brain', emoji: '🧠', type: ScanType.brain)),
+                  const SizedBox(width: 10),
+                  Expanded(child: _buildTypeButton(icon: FontAwesomeIcons.faceSmile, label: 'Face', emoji: '😊', type: ScanType.face)),
+                  const SizedBox(width: 10),
+                  Expanded(child: _buildTypeButton(icon: FontAwesomeIcons.hand, label: 'Hand', emoji: '✋', type: ScanType.hand)),
                 ],
               ),
             ],
@@ -197,8 +183,7 @@ class _ScanScreenState extends State<ScanScreen> {
         _showImageSourceDialog();
       },
       child: Container(
-        width: 80,
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
         decoration: BoxDecoration(
           color: selected
               ? const Color(0xFF0E7772)
@@ -321,15 +306,16 @@ class _ScanScreenState extends State<ScanScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                FaIcon(resultIcon, size: 60, color: resultColor),
-                const SizedBox(height: 16),
+                FaIcon(resultIcon, size: 50, color: resultColor),
+                const SizedBox(height: 12),
                 Text(
                   resultTitle,
                   style: TextStyle(
@@ -372,11 +358,12 @@ class _ScanScreenState extends State<ScanScreen> {
                 const SizedBox(height: 16),
 
                 // ── type-specific details ──────────────────────────────────
+                if (scanType == 'brain') _buildBrainDetails(result),
                 if (scanType == 'face') _buildFaceDetails(result),
                 if (scanType == 'hand') _buildHandDetails(result),
 
                 // ── issues / findings ──────────────────────────────────────
-                if (issues.isNotEmpty || scanType == 'brain')
+                if (issues.isNotEmpty || (scanType == 'brain' && result['risk_category'] == null))
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -456,20 +443,23 @@ class _ScanScreenState extends State<ScanScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       FaIcon(_iconForType(_scanType),
-                          size: 12, color: const Color(0xFF0E7772)),
-                      const SizedBox(width: 6),
-                      Text(
-                        'AI Model: ${result['model'] ?? 'N/A'}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF0E7772),
-                          fontWeight: FontWeight.w600,
+                          size: 11, color: const Color(0xFF0E7772)),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          result['model'] ?? 'AI Model',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF0E7772),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -501,6 +491,75 @@ class _ScanScreenState extends State<ScanScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBrainDetails(Map<String, dynamic> result) {
+    final String riskCategory = result['risk_category'] as String? ?? '';
+    final dynamic prob = result['stroke_probability'];
+    final String rawResult = result['raw_result'] as String? ?? '';
+
+    if (riskCategory.isEmpty && prob == null) return const SizedBox.shrink();
+
+    final bool isHighRisk = riskCategory.toLowerCase().contains('high');
+    final Color riskColor = isHighRisk ? Colors.red : Colors.orange;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFEBEE),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Brain Scan Analysis',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.redAccent),
+            ),
+            if (rawResult.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Diagnosis: $rawResult',
+                style: const TextStyle(fontSize: 13, color: Colors.black87),
+              ),
+            ],
+            if (riskCategory.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Text('Risk Category: ',
+                      style: TextStyle(fontSize: 13, color: Colors.black54)),
+                  Text(
+                    riskCategory,
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: riskColor),
+                  ),
+                ],
+              ),
+            ],
+            if (prob != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Stroke Probability: $prob%',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: riskColor,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

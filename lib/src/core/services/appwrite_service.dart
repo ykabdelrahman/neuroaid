@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:appwrite/appwrite.dart';
 
 class AppwriteService {
@@ -16,6 +17,7 @@ class AppwriteService {
   late final Databases databases;
 
   AppwriteService() {
+    log('🔌 AppwriteService: Connecting to $endpoint (project: $projectId)');
     client = Client()
       ..setEndpoint(endpoint)
       ..setProject(projectId)
@@ -23,5 +25,6 @@ class AppwriteService {
 
     account = Account(client);
     databases = Databases(client);
+    log('✅ AppwriteService: Client initialized — database: $databaseId');
   }
 }

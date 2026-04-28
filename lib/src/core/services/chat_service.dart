@@ -15,6 +15,7 @@ class ChatService {
   late final Dio _dio;
 
   ChatService([_]) {
+    log('🤖 ChatService: Initializing — baseUrl: ${ApiConstants.openRouterBaseUrl}, model: ${ApiConstants.openRouterModel}');
     _dio = Dio(
       BaseOptions(
         baseUrl: ApiConstants.openRouterBaseUrl,
@@ -24,11 +25,10 @@ class ChatService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${ApiConstants.openRouterApiKey}',
-          'HTTP-Referer': 'https://neuroaid.app',
-          'X-Title': 'NeuroAid',
         },
       ),
     );
+    log('✅ ChatService: Dio client ready');
   }
 
   /// Send a message to the AI chatbot and return the full response text.
@@ -99,7 +99,7 @@ class ChatService {
       } else if (e.type == DioExceptionType.connectionError) {
         throw Exception('Cannot connect to chatbot service.');
       } else if (e.response?.statusCode == 401) {
-        throw Exception('Chatbot authentication failed. Please contact support.');
+        throw Exception('Chatbot API key is invalid or expired. Go to console.groq.com, generate a new key, and update it in api_constants.dart.');
       } else if (e.response?.statusCode == 429) {
         throw Exception('Too many requests. Please wait a moment and try again.');
       }

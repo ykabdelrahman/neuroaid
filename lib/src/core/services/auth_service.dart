@@ -18,20 +18,21 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    log('AuthService: Login $email');
+    log('🔐 AuthService: Login attempt → $email [${AppwriteService.endpoint}]');
     try {
       final session = await _appwrite.account.createEmailPasswordSession(
         email: email,
         password: password,
       );
+      log('✅ AuthService: Session created — sessionId: ${session.$id}, userId: ${session.userId}');
 
       final user = await _getOrCreateUserProfile(session.userId, email);
       await _saveUser(user);
 
-      log('AuthService: Login successful');
+      log('✅ AuthService: Login successful — user: ${user.name} (${user.id})');
       return AuthResponse(accessToken: session.$id, user: user);
     } on AppwriteException catch (e) {
-      log('AuthService: Login failed: ${e.message}');
+      log('❌ AuthService: Login failed [code: ${e.code}] — ${e.message}');
       throw Exception(e.message ?? 'Login failed');
     }
   }
@@ -44,23 +45,28 @@ class AuthService {
     String role = 'client',
     bool isActive = true,
   }) async {
-    log('AuthService: Register $email');
+    log('📝 AuthService: Register attempt → $email [${AppwriteService.endpoint}]');
     try {
       // Create Appwrite account
+      log('AuthService: [1/3] Creating Appwrite account...');
       await _appwrite.account.create(
         userId: ID.unique(),
         email: email,
         password: password,
         name: name,
       );
+      log('AuthService: [1/3] Account created');
 
       // Create session
+      log('AuthService: [2/3] Creating session...');
       final session = await _appwrite.account.createEmailPasswordSession(
         email: email,
         password: password,
       );
+      log('AuthService: [2/3] Session created — userId: ${session.userId}');
 
       // Create user profile document
+      log('AuthService: [3/3] Creating user profile document...');
       final doc = await _appwrite.databases.createDocument(
         databaseId: AppwriteService.databaseId,
         collectionId: AppwriteService.usersCollection,
@@ -75,25 +81,30 @@ class AuthService {
           'password': '',
         },
       );
+      log('AuthService: [3/3] Profile document created — docId: ${doc.$id}');
 
       final user = UserModel.fromJson(doc.data..addAll({'\$id': doc.$id}));
       await _saveUser(user);
 
-      log('AuthService: Register successful');
+      log('✅ AuthService: Register successful — user: ${user.name} (${user.id})');
       return AuthResponse(accessToken: session.$id, user: user);
     } on AppwriteException catch (e) {
-      log('AuthService: Register failed: ${e.message}');
+      log('❌ AuthService: Register failed [code: ${e.code}] — ${e.message}');
       throw Exception(e.message ?? 'Registration failed');
     }
   }
 
   Future<void> logout() async {
-    log('AuthService: Logout');
+    log('🚪 AuthService: Logout — deleting current session');
     try {
       await _appwrite.account.deleteSession(sessionId: 'current');
-    } catch (_) {}
+      log('✅ AuthService: Session deleted');
+    } catch (e) {
+      log('⚠️ AuthService: Session delete failed (ignored): $e');
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_userKey);
+    log('AuthService: Local user cache cleared');
   }
 
   Future<bool> isLoggedIn() async {
@@ -137,7 +148,7 @@ class AuthService {
   }
 
   Future<UserModel> updateUserProfile(UserModel user) async {
-    log('AuthService: Updating profile for ${user.id}');
+    log('✏️ AuthService: Updating profile for user ${user.id} (${user.email})');
     try {
       // Update Appwrite account name if changed
       await _appwrite.account.updateName(name: user.name);
@@ -158,8 +169,10 @@ class AuthService {
 
       final updated = UserModel.fromJson(doc.data..addAll({'\$id': doc.$id}));
       await _saveUser(updated);
+      log('✅ AuthService: Profile updated successfully');
       return updated;
     } on AppwriteException catch (e) {
+      log('❌ AuthService: Profile update failed [code: ${e.code}] — ${e.message}');
       throw Exception(e.message ?? 'Update failed');
     }
   }
@@ -187,16 +200,18 @@ class AuthService {
   // ── private helpers ──────────────────────────────────────────────────────
 
   Future<UserModel> _getOrCreateUserProfile(String userId, String email) async {
+    log('AuthService: Fetching user profile — userId: $userId');
     try {
       final doc = await _appwrite.databases.getDocument(
         databaseId: AppwriteService.databaseId,
         collectionId: AppwriteService.usersCollection,
         documentId: userId,
       );
+      log('✅ AuthService: Profile found — ${doc.data['name']}');
       return UserModel.fromJson(doc.data..addAll({'\$id': doc.$id}));
     } on AppwriteException catch (e) {
       if (e.code == 404) {
-        // Document doesn't exist yet — create a minimal one
+        log('⚠️ AuthService: Profile not found, creating minimal document...');
         final doc = await _appwrite.databases.createDocument(
           databaseId: AppwriteService.databaseId,
           collectionId: AppwriteService.usersCollection,
@@ -211,8 +226,10 @@ class AuthService {
             'password': '',
           },
         );
+        log('✅ AuthService: Minimal profile created — ${doc.$id}');
         return UserModel.fromJson(doc.data..addAll({'\$id': doc.$id}));
       }
+      log('❌ AuthService: Profile fetch failed [code: ${e.code}] — ${e.message}');
       rethrow;
     }
   }

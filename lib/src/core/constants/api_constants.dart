@@ -4,11 +4,11 @@ import 'package:flutter/foundation.dart';
 class ApiConstants {
   // ==================== Production AI Service URLs ====================
 
-  /// OpenRouter API (chatbot)
-  static const String openRouterBaseUrl = 'https://openrouter.ai/api/v1';
+  /// Groq API (chatbot)
+  static const String openRouterBaseUrl = 'https://api.groq.com/openai/v1';
   static const String openRouterApiKey =
-      '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';
-  static const String openRouterModel = 'openai/gpt-4o-mini';
+      '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';
+  static const String openRouterModel = 'llama-3.3-70b-versatile';
   static const String openRouterChatEndpoint = '/chat/completions';
 
   /// Stroke risk prediction service (Scikit-Learn ML model)

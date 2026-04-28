@@ -37,7 +37,7 @@ class ScanService {
 
   /// Upload a brain scan image to the stroke image detection service.
   Future<Map<String, dynamic>> uploadScan(File imageFile) async {
-    log('ScanService: Uploading scan to ${ApiConstants.strokeImageServiceUrl}...');
+    log('🧠 ScanService: Uploading brain scan to ${ApiConstants.strokeImageServiceUrl}...');
     try {
       final bytes = await imageFile.readAsBytes();
       log('ScanService: Image size: ${bytes.length} bytes');
@@ -57,28 +57,44 @@ class ScanService {
         ),
       );
 
-      log('ScanService: Response: ${response.data}');
-
+      log('ScanService: Brain scan response: ${response.data}');
       final data = response.data as Map<String, dynamic>;
 
-      // Model file not yet uploaded on the server — surface the message.
-      if (!data.containsKey('prediction')) {
-        final msg = data['message'] as String? ?? 'Model not available yet.';
+      // API response: { result, risk_category, stroke_probability, filename, status }
+      if (!data.containsKey('result')) {
+        final msg = data['message'] as String? ?? 'Unexpected response from brain scan service.';
         throw Exception(msg);
       }
 
-      final prediction = data['prediction'] as String;
-      final confidence = data['confidence'] as String;
+      final resultText = data['result'] as String? ?? 'Unknown';
+      final riskCategory = data['risk_category'] as String? ?? '';
+      final strokeProbability = data['stroke_probability'];
 
+      // Normalize to STROKE / NORMAL for the result dialog
+      final isStroke = resultText.toLowerCase().contains('stroke');
+      final normalized = isStroke ? 'STROKE' : 'NORMAL';
+
+      double confidence = 0;
+      if (strokeProbability is int) {
+        confidence = strokeProbability.toDouble();
+      } else if (strokeProbability is double) {
+        confidence = strokeProbability;
+      } else if (strokeProbability is String) {
+        confidence = double.tryParse(strokeProbability) ?? 0;
+      }
+
+      log('✅ ScanService: Brain result=$normalized risk=$riskCategory prob=$confidence%');
       return {
-        'result': prediction.toLowerCase(),
+        'result': normalized,
         'confidence': confidence,
-        'prediction': prediction,
+        'risk_category': riskCategory,
+        'stroke_probability': strokeProbability,
+        'raw_result': resultText,
         'model': 'Stroke Image Detection Model',
         'source': 'AI',
       };
     } catch (e) {
-      log('ScanService: Upload failed: $e');
+      log('❌ ScanService: Brain scan failed: $e');
       rethrow;
     }
   }
@@ -115,6 +131,10 @@ class ScanService {
         'source': 'AI',
         'scan_type': 'face',
       };
+    } on DioException catch (e) {
+      final msg = _extractApiError(e) ?? 'Face scan failed. Please try again.';
+      log('ScanService: Face upload failed: $msg');
+      throw Exception(msg);
     } catch (e) {
       log('ScanService: Face upload failed: $e');
       rethrow;
@@ -156,10 +176,22 @@ class ScanService {
         'source': 'AI',
         'scan_type': 'hand',
       };
+    } on DioException catch (e) {
+      final msg = _extractApiError(e) ?? 'Hand scan failed. Please try again.';
+      log('ScanService: Hand upload failed: $msg');
+      throw Exception(msg);
     } catch (e) {
       log('ScanService: Hand upload failed: $e');
       rethrow;
     }
+  }
+
+  String? _extractApiError(DioException e) {
+    try {
+      final data = e.response?.data;
+      if (data is Map) return data['error'] as String? ?? data['message'] as String?;
+    } catch (_) {}
+    return null;
   }
 
   Future<Map<String, dynamic>> getScanResult(String scanId) async => {};
