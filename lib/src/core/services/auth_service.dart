@@ -20,6 +20,12 @@ class AuthService {
   }) async {
     log('🔐 AuthService: Login attempt → $email [${AppwriteService.endpoint}]');
     try {
+      // Wipe any lingering session so Appwrite doesn't reject the new one
+      try {
+        await _appwrite.account.deleteSessions();
+        log('AuthService: Cleared existing sessions before login');
+      } catch (_) {}
+
       final session = await _appwrite.account.createEmailPasswordSession(
         email: email,
         password: password,
@@ -95,12 +101,12 @@ class AuthService {
   }
 
   Future<void> logout() async {
-    log('🚪 AuthService: Logout — deleting current session');
+    log('🚪 AuthService: Logout — deleting all sessions');
     try {
-      await _appwrite.account.deleteSession(sessionId: 'current');
-      log('✅ AuthService: Session deleted');
+      await _appwrite.account.deleteSessions();
+      log('✅ AuthService: All sessions deleted');
     } catch (e) {
-      log('⚠️ AuthService: Session delete failed (ignored): $e');
+      log('⚠️ AuthService: deleteSessions failed (ignored): $e');
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_userKey);
