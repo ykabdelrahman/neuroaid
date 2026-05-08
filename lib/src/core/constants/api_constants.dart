@@ -1,28 +1,33 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiConstants {
   // ==================== Production AI Service URLs ====================
 
   /// Groq API (chatbot)
-  static const String openRouterBaseUrl = 'https://api.groq.com/openai/v1';
-  static const String openRouterApiKey =
-      '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';
-  static const String openRouterModel = 'llama-3.3-70b-versatile';
+  static String get openRouterBaseUrl =>
+      dotenv.env['GROQ_BASE_URL'] ?? 'https://api.groq.com/openai/v1';
+  static String get openRouterApiKey => dotenv.env['GROQ_API_KEY'] ?? '';
+  static String get openRouterModel =>
+      dotenv.env['GROQ_MODEL'] ?? 'llama-3.3-70b-versatile';
   static const String openRouterChatEndpoint = '/chat/completions';
 
   /// Stroke risk prediction service (Scikit-Learn ML model)
-  static const String strokeQaServiceUrl = 'https://nuro-qa.baselembaby.cloud';
+  static String get strokeQaServiceUrl =>
+      dotenv.env['STROKE_QA_SERVICE_URL'] ?? '';
 
   /// Stroke image detection service (TensorFlow/Keras)
-  static const String strokeImageServiceUrl =
-      'https://nuro-image.baselembaby.cloud';
+  static String get strokeImageServiceUrl =>
+      dotenv.env['STROKE_IMAGE_SERVICE_URL'] ?? '';
 
   /// Face stroke detection service (MediaPipe FaceMesh)
-  static const String strokeFaceServiceUrl = 'http://13.60.105.139:5000';
+  static String get strokeFaceServiceUrl =>
+      dotenv.env['STROKE_FACE_SERVICE_URL'] ?? '';
 
   /// Hand stroke detection service (MediaPipe Hands)
-  static const String strokeHandServiceUrl = 'http://13.60.105.139:5001';
+  static String get strokeHandServiceUrl =>
+      dotenv.env['STROKE_HAND_SERVICE_URL'] ?? '';
 
   // ==================== Main API Endpoints (for future backend) ====================
 

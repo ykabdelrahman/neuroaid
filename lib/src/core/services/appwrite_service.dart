@@ -1,10 +1,12 @@
 import 'dart:developer';
 import 'package:appwrite/appwrite.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppwriteService {
-  static const String endpoint = 'https://db.baselembaby.cloud/v1';
-  static const String projectId = 'nero-app';
-  static const String databaseId = 'nero-database';
+  static String get endpoint =>
+      dotenv.env['APPWRITE_ENDPOINT'] ?? 'https://db.baselembaby.cloud/v1';
+  static String get projectId => dotenv.env['APPWRITE_PROJECT_ID'] ?? '';
+  static String get databaseId => dotenv.env['APPWRITE_DATABASE_ID'] ?? '';
 
   static const String usersCollection = 'users';
   static const String doctorsCollection = 'doctors';

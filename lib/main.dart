@@ -1,6 +1,7 @@
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:neuroaid/neuro_aid.dart';
 import 'package:neuroaid/src/core/bloc/auth/auth_cubit.dart';
@@ -15,6 +16,7 @@ import 'package:neuroaid/src/core/services/faq_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
 
   final appwrite = AppwriteService();
   final authService = AuthService(appwrite);
